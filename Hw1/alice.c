@@ -4,7 +4,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 
-// Function prototypes (from demo.c)
+
 unsigned char* Read_File(char fileName[], int *fileLen);
 void Write_File(char fileName[], char input[], int input_length);
 void Convert_to_Hex(char output[], unsigned char input[], int inputlength);
@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
     }
 
     int message_len = 0;
+    //read message from input file 
     unsigned char *message = Read_File(argv[1], &message_len);
     if (message_len < 32) {
         printf("Error: message length must be >= 32 bytes.\n");
@@ -26,7 +27,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-   
+   //read the seed from the input file
     int seed_len = 0;
     unsigned char *seed = Read_File(argv[2], &seed_len);
     if (seed_len != 32) {
@@ -35,9 +36,66 @@ int main(int argc, char *argv[]) {
         free(seed);
         return 1;
     }
+    
 
+    //generate the random number, convert it to hex then write it to the "key" file
+    unsigned char *pseudoRandomNumber = PRNG(seed, seed_len, message_len);
+    char *key_hex = malloc(2 * message_len + 1);
+    Convert_to_Hex(key_hex, pseudoRandomNumber, message_len);
+    Write_File("Key.txt", key_hex, 2 * message_len);
+    
+
+    //encrypt the message using the generated PRNG and write it to the "cyphertext" file
+    unsigned char *cyphertext = malloc(message_len);
+    for (int i = 0; i < message_len; i++) {
+        cyphertext[i] = message[i] ^ pseudoRandomNumber[i];
+    }
+    char *cyphertext_hex = malloc(2 * message_len + 1);
+    Convert_to_Hex(cyphertext_hex, cyphertext, message_len);
+    Write_File("Cyphertext.txt", cyphertext_hex, 2 * message_len);
+
+   
+
+
+
+    sleep(5);
+
+    //Alice haseds the message to compare to the hash of the plaintext made by bob
+    unsigned char *hash = Hash_SHA256(message, message_len);
+    char *hash_hex = malloc(2 * SHA256_DIGEST_LENGTH + 1);
+    Convert_to_Hex(hash_hex, hash, SHA256_DIGEST_LENGTH);
+
+    
+ //reads bobs hash from the hash file and compares it with the hashed msg by alice to see if they match
+    int bobs_hash_length = 0;
+    unsigned char *bobs_hash = Read_File("Hash.txt", &bobs_hash_length);
+
+    int verify_match = 0;
+    if (bobs_hash_length == 2 * SHA256_DIGEST_LENGTH &&
+        memcmp(bobs_hash, hash_hex, 2 * SHA256_DIGEST_LENGTH) == 0) {
+        verify_match = 1;
+    }
+
+    if (verify_match) {
+        Write_File("Acknowledgment.txt", "Acknowledgment Successful",
+                (int)strlen("Acknowledgment Successful"));
+    } else {
+        Write_File("Acknowledgment.txt", "Acknowledgment Failed",
+                (int)strlen("Acknowledgment Failed"));
+    }
+
+
+    // free the memory to make sure there are no leaks
+    free(pseudoRandomNumber);
+    free(hash);
     free(message);
     free(seed);
+    free(hash_hex);
+    free(bobs_hash);
+    free(key_hex);
+    free(cyphertext_hex);
+    free(cyphertext);
+
     return 0;
 }
 
