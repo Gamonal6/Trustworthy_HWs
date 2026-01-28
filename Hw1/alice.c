@@ -52,13 +52,9 @@ int main(int argc, char *argv[]) {
     }
     char *cyphertext_hex = malloc(2 * message_len + 1);
     Convert_to_Hex(cyphertext_hex, cyphertext, message_len);
-    Write_File("Cyphertext.txt", cyphertext_hex, 2 * message_len);
-
-   
+    Write_File("Ciphertext.txt", cyphertext_hex, 2 * message_len);
 
 
-
-    sleep(5);
 
     //Alice haseds the message to compare to the hash of the plaintext made by bob
     unsigned char *hash = Hash_SHA256(message, message_len);
