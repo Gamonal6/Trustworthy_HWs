@@ -13,16 +13,17 @@ unsigned char* PRNG(unsigned char *seed, unsigned long seedlen, unsigned long pr
 unsigned char* Hash_SHA256(unsigned char* input, unsigned long inputlen);
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-       
+    if (argc < 3) 
+{
         return 1;
     }
 
     int message_len = 0;
     //read message from input file 
     unsigned char *message = Read_File(argv[1], &message_len);
-    if (message_len < 32) {
-        printf("Error: message length must be >= 32 bytes.\n");
+    if (message_len < 32) 
+    {
+        printf("the message has to be greater than 32 bytes\n");
         free(message);
         return 1;
     }
@@ -30,8 +31,10 @@ int main(int argc, char *argv[]) {
    //read the seed from the input file
     int seed_len = 0;
     unsigned char *seed = Read_File(argv[2], &seed_len);
-    if (seed_len != 32) {
-        printf("Error: shared seed length must be 32 bytes.\n");
+
+    if (seed_len != 32) 
+    {
+        printf("shared seed must be 32 bytes\n");
         free(message);
         free(seed);
         return 1;
@@ -47,7 +50,8 @@ int main(int argc, char *argv[]) {
 
     //encrypt the message using the generated PRNG and write it to the "cyphertext" file
     unsigned char *cyphertext = malloc(message_len);
-    for (int i = 0; i < message_len; i++) {
+    for (int i = 0; i < message_len; i++) 
+    {
         cyphertext[i] = message[i] ^ pseudoRandomNumber[i];
     }
     char *cyphertext_hex = malloc(2 * message_len + 1);
@@ -58,8 +62,8 @@ int main(int argc, char *argv[]) {
 
     //Alice haseds the message to compare to the hash of the plaintext made by bob
     unsigned char *hash = Hash_SHA256(message, message_len);
-    char *hash_hex = malloc(2 * SHA256_DIGEST_LENGTH + 1);
-    Convert_to_Hex(hash_hex, hash, SHA256_DIGEST_LENGTH);
+    char *hash_hex = malloc(1+ 64);
+    Convert_to_Hex(hash_hex, hash, 32);
 
     
  //reads bobs hash from the hash file and compares it with the hashed msg by alice to see if they match
@@ -67,17 +71,18 @@ int main(int argc, char *argv[]) {
     unsigned char *bobs_hash = Read_File("Hash.txt", &bobs_hash_length);
 
     int verify_match = 0;
-    if (bobs_hash_length == 2 * SHA256_DIGEST_LENGTH &&
-        memcmp(bobs_hash, hash_hex, 2 * SHA256_DIGEST_LENGTH) == 0) {
+    if (bobs_hash_length == 64 && memcmp(bobs_hash, hash_hex, 64) == 0) {
         verify_match = 1;
     }
 
-    if (verify_match) {
-        Write_File("Acknowledgment.txt", "Acknowledgment Successful",
-                (int)strlen("Acknowledgment Successful"));
+    int str_len_Success = strlen("Acknowledgment Successful");
+    int str_len_Failure = strlen("Acknowledgment Failed");
+
+    if (verify_match) 
+    {
+        Write_File("Acknowledgment.txt", "Acknowledgment Successful", str_len_Success);
     } else {
-        Write_File("Acknowledgment.txt", "Acknowledgment Failed",
-                (int)strlen("Acknowledgment Failed"));
+        Write_File("Acknowledgment.txt", "Acknowledgment Failed", str_len_Failure);
     }
 
 
