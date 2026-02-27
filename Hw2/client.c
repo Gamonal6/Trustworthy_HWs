@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/sha.h>
-#include <openssl/evp.h>
+
 
 //prototypes
 char* Read_File(const char *filename, int *length);
@@ -13,7 +13,7 @@ int Bytes_to_Hex(const unsigned char *bytes, int byte_len, char *hex);
 int Read_Int_From_File(const char *filename);
 int Write_Int_To_File(const char *filename, int value);
 void Print_Hex(const char *label, const unsigned char *data, int len);
-static void u64_to_bytes(uint64_t value, unsigned char out[8]);
+static void nonce_tobytes(uint64_t value, unsigned char out[8]);
 static int k_leading_zeroes(const unsigned char *hash, int k);
 
 
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     char *hex_chall = Read_File(argv[1], &len_hex_chall); //read the challenge from the file
 
     if (!hex_chall) {
-        printf("Cannot read challenge file\n");
+        printf("Cant read challenge file\n");
         return 1;
     }
 
@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 
     unsigned char chall_bytes[64];
 
+    // convert the hex challange to byte format
     int chall_bytes_len = Hex_to_Bytes(hex_chall, chall_bytes, len_hex_chall);
     free(hex_chall);
 
@@ -51,13 +52,15 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // actual data is the challenge bytes and the nonce bytes
     unsigned char actual_data[72];
-    memcpy(actual_data, chall_bytes, (size_t)len_hex_chall);
+    memcpy(actual_data, chall_bytes, (size_t)chall_bytes_len);
 
-    uint64_t max_tries = 1;
+    uint64_t max_try = 1;
+    //max try is 2^k
     for (int i = 0; i < num_k; i++) 
     {
-        max_tries *= 2;
+        max_try *= 2;
     }
 
     uint64_t nonce = 0;
@@ -65,13 +68,15 @@ int main(int argc, char *argv[])
     unsigned char hash[SHA256_DIGEST_LENGTH];
     int found = 0;
 
-    while (max_tries == 0 || nonce < max_tries) 
+
+    //iterate through all the possible nonces
+    while (max_try == 0 || nonce < max_try) 
     {
         unsigned char nonce_bt[8];
-        u64_to_bytes(nonce, nonce_bt);
-        memcpy(actual_data + len_hex_chall, nonce_bt, 8);
+        nonce_tobytes(nonce, nonce_bt);
+        memcpy(actual_data + chall_bytes_len, nonce_bt, 8);;
     
-        SHA256(actual_data, (size_t)len_hex_chall + 8, hash);
+        SHA256(actual_data, (size_t)chall_bytes_len + 8, hash);
         iterations++;
     
         if (k_leading_zeroes(hash, num_k)) 
@@ -79,23 +84,22 @@ int main(int argc, char *argv[])
             found = 1;
             break;
         }
-    
         nonce++;
     }
     
     unsigned char out_nonce_bt[8];
     char nonce_hex[17];
-    u64_to_bytes(nonce, out_nonce_bt);
-    Bytes_to_Hex(out_nonce_bt, 8, nonce_hex);
+    nonce_tobytes(nonce, out_nonce_bt); //convert the nonce to bytes
+    Bytes_to_Hex(out_nonce_bt, 8, nonce_hex); //convert the nonce to hex
 
-    if (Write_File("solution nonce.txt", nonce_hex) != 0){
+    if (Write_File("solution_nonce.txt", nonce_hex) != 0){
         printf("cant write the nonce to the file\n");
         return 1;
     } 
 
     char iterate_buf[32];
     sprintf(iterate_buf, "%llu", (unsigned long long)iterations);
-    if (Write_File("solution iterations.txt", iterate_buf) != 0) 
+    if (Write_File("solution_iterations.txt", iterate_buf) != 0) 
     {
         return 1;
     }
@@ -106,35 +110,43 @@ int main(int argc, char *argv[])
 
 //NEw funtctions
 
-static void u64_to_bytes(uint64_t value, unsigned char out[8]) {
-    for (int i = 0; i < 8; i++) 
-    {
-        out[7 - i] = (unsigned char)value;
+static void nonce_tobytes(uint64_t value, unsigned char out[8]) {
+
+    //LITTLE ENDIAN
+    for (int i = 0; i < 8; i++) {
+        out[i] = (unsigned char)value;  //least‑significant byte first
         value >>= 8;
     }
 }
 
-static int k_leading_zeroes(const unsigned char *hash, int k) 
+// Check if the first k bits of the hash are all zero
+static int k_leading_zeroes(const unsigned char *hash, int bits) 
 {
-    if (k <= 0) {return 1;}
-
-    int f_bytes = k / 8;
-    int r_bits = k % 8;
-
-    for (int i = 0; i < f_bytes; i++) 
-    {
-        if (hash[i] != 0) 
-        {
-            return 0;
-        }
-    }
-    if (r_bits == 0)    
-    {
+    if (bits <= 0)
         return 1;
+
+
+     //number of full zero bytes in the hash    
+    int full_zero_bytes = bits / 8;
+    int remaining_bits = bits % 8; //number of remaining bits in the last byte
+
+
+    //loop through all the full zero bytes to check if they are acutally 0
+    for (int i = 0; i < full_zero_bytes; ++i) 
+    {
+        if (hash[i] != 0)
+            return 0;
     }
 
-    unsigned char mask = 0xFF << (8 - r_bits);
-    return (hash[f_bytes] & mask) == 0;
+    //if there are no remaining bits, then the hash is all zero
+    if (remaining_bits == 0)
+        return 1;
+
+        //placeholder for the last byte
+    unsigned char placeholder = (unsigned char)(0xFF << (8 - remaining_bits));
+    if ((hash[full_zero_bytes] & placeholder) != 0)
+        return 0;
+    return 1;
 }
 
 

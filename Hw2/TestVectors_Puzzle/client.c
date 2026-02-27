@@ -151,9 +151,6 @@ static int k_leading_zeroes(const unsigned char *hash, int bits)
 
 
 
-/*
-    File I/O Functions
-*/
 
  // Read File
  char* Read_File(const char *filename, int *length) {

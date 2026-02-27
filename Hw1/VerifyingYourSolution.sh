@@ -1,5 +1,5 @@
-gcc ../Hw1/alice.c -lcrypto -o alice
-gcc ../Hw1/bob.c -lcrypto -o bob
+gcc alice.c -lcrypto -o alice
+gcc bob.c -lcrypto -o bob
 
 for i in 1 2 3
 do

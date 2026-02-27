@@ -5,7 +5,7 @@
 
 #define SHA256_LEN 32
 
-// Helper prototypes
+
 char* Read_File(const char *filename, int *length);
 int Write_File(const char *filename, const char *data);
 void Bytes_to_Hex(const unsigned char *bytes, int byte_len, char *hex);
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Parse 8 msgs, skip line endings
+    // Parse 8 msgs and skip line endings
     unsigned char *msgs[8];
     char *ptr = fileContent;
     
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
         char pathHex[1024] = ""; 
         char tempHex[65];
 
-        // Sibilng hashes for auth path
+        //hashes of sibling nodes for auth path
         int neighborIdx = (targetIdx % 2 == 0) ? targetIdx + 1 : targetIdx - 1;
         Bytes_to_Hex(leaves[neighborIdx], 32, tempHex);
         strcat(pathHex, tempHex);
@@ -87,14 +87,15 @@ int main(int argc, char *argv[]) {
         
         int currentIdx = targetIdx / 2; 
         neighborIdx = (currentIdx % 2 == 0) ? currentIdx + 1 : currentIdx - 1;
-        
+        //hashes of sibling nodes for auth path
         Bytes_to_Hex(level1[neighborIdx], 32, tempHex);
         strcat(pathHex, tempHex); 
         strcat(pathHex, "\n");
 
-        currentIdx = currentIdx / 2;
+        currentIdx = currentIdx / 2; //next level
         neighborIdx = (currentIdx % 2 == 0) ? currentIdx + 1 : currentIdx - 1;
 
+        //hashes of sibling nodes for auth path
         Bytes_to_Hex(level2[neighborIdx], 32, tempHex);
         strcat(pathHex, tempHex);
         strcat(pathHex, "\n");

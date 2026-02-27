@@ -16,7 +16,7 @@ unsigned char hex_to_byte(char hex1, char hex2);
 
 int main(int argc, char *argv[]) {
 
-    // Check that the correct number of command line arguments are provided
+    // check that the correct number of command line arguments are provided
     if (argc < 2) {
         return 1;
     }
