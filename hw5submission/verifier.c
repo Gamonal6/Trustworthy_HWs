@@ -97,10 +97,6 @@ int main(int argc, char **argv)
 
     if (argc != 9)
     {
-        fprintf(stderr,
-            "Usage: %s <ID1.txt> <ID2.txt> <message.txt> <mpk.txt> "
-            "<Q_ID1.txt> <Q_ID2.txt> <sig_s.txt> <sig_h.txt>\n",
-            argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -126,17 +122,14 @@ int main(int argc, char **argv)
     // initialize the elliptic curve group and extract group order q
     if (!init_group(&group, &q))
     {
-        fprintf(stderr, "Error: failed to initialize EC group.\n");
+        fprintf(stderr, "verify: init error\n");
         return EXIT_FAILURE;
     }
 
     // retrieve the generator point P from the curve group
     P = EC_GROUP_get0_generator(group);
     if (!P)
-    {
-        fprintf(stderr, "Error: failed to get generator P.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 1: Read public parameters and signature                  */
@@ -151,34 +144,19 @@ int main(int argc, char **argv)
 
     // read the master public key from mpk.txt
     if (!read_point_hex(mpk_path, group, &mpk))
-    {
-        fprintf(stderr, "Error: failed to read mpk from %s.\n", mpk_path);
         return EXIT_FAILURE;
-    }
 
     // read the level-1 and level-2 public delegation points
     if (!read_point_hex(qid1_path, group, &Q_ID1))
-    {
-        fprintf(stderr, "Error: failed to read Q_ID1 from %s.\n", qid1_path);
         return EXIT_FAILURE;
-    }
     if (!read_point_hex(qid2_path, group, &Q_ID2))
-    {
-        fprintf(stderr, "Error: failed to read Q_ID2 from %s.\n", qid2_path);
         return EXIT_FAILURE;
-    }
 
     // read the signature scalars s and h
     if (!read_bn_hex(sig_s_path, &s))
-    {
-        fprintf(stderr, "Error: failed to read s from %s.\n", sig_s_path);
         return EXIT_FAILURE;
-    }
     if (!read_bn_hex(sig_h_path, &h))
-    {
-        fprintf(stderr, "Error: failed to read h from %s.\n", sig_h_path);
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 2: Read identities and message                            */
@@ -191,18 +169,14 @@ int main(int argc, char **argv)
      */
     /* ------------------------------------------------------------ */
 
-    // read identity ID_1 from file and strip newlines
+    //read the identity ID_ m file and strip newlines
     {
         FILE *f = fopen(id1_path, "r");
         if (!f)
-        {
-            fprintf(stderr, "Error: cannot open %s.\n", id1_path);
             return EXIT_FAILURE;
-        }
         if (!fgets(ID_1, sizeof(ID_1), f))
         {
             fclose(f);
-            fprintf(stderr, "Error: failed to read identity from %s.\n", id1_path);
             return EXIT_FAILURE;
         }
         fclose(f);
@@ -215,14 +189,10 @@ int main(int argc, char **argv)
     {
         FILE *f = fopen(id2_path, "r");
         if (!f)
-        {
-            fprintf(stderr, "Error: cannot open %s.\n", id2_path);
             return EXIT_FAILURE;
-        }
         if (!fgets(ID_2, sizeof(ID_2), f))
         {
             fclose(f);
-            fprintf(stderr, "Error: failed to read identity from %s.\n", id2_path);
             return EXIT_FAILURE;
         }
         fclose(f);
@@ -231,18 +201,14 @@ int main(int argc, char **argv)
             ID_2[--id2_len] = '\0';
     }
 
-    // read the message from file and strip newlines
+    //read the message from file and strip newlines
     {
         FILE *f = fopen(msg_path, "r");
         if (!f)
-        {
-            fprintf(stderr, "Error: cannot open %s.\n", msg_path);
             return EXIT_FAILURE;
-        }
         if (!fgets(MESSAGE, sizeof(MESSAGE), f))
         {
             fclose(f);
-            fprintf(stderr, "Error: failed to read message from %s.\n", msg_path);
             return EXIT_FAILURE;
         }
         fclose(f);
@@ -260,13 +226,10 @@ int main(int argc, char **argv)
      */
     /* ------------------------------------------------------------ */
 
-    // allocate BN context for big number operations
+    // allocate the BN context for big number operations
     ctx = BN_CTX_new();
     if (!ctx)
-    {
-        fprintf(stderr, "Error: BN_CTX_new failed.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 4: Compute c_ID1 = H1(ID_1 || Q_ID1)                      */
@@ -279,32 +242,23 @@ int main(int argc, char **argv)
      */
     /* ------------------------------------------------------------ */
 
-    // serialize Q_ID1 and hash ID_1 || Q_ID1 to produce c_ID1
+
     {
         size_t qid1_len = 0;
         if (!point_to_bytes(group, Q_ID1, &qid1_bytes, &qid1_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Q_ID1.\n");
             return EXIT_FAILURE;
-        }
 
         // concatenate ID_1 || Q_ID1 into buffer
         size_t buf_len = id1_len + qid1_len;
         buf1 = (unsigned char *)malloc(buf_len);
         if (!buf1)
-        {
-            fprintf(stderr, "Error: malloc failed.\n");
             return EXIT_FAILURE;
-        }
         memcpy(buf1, ID_1, id1_len);
         memcpy(buf1 + id1_len, qid1_bytes, qid1_len);
 
         // hash to scalar c_ID1
         if (!H1_to_scalar(buf1, buf_len, q, &c_ID1))
-        {
-            fprintf(stderr, "Error: H1_to_scalar failed for c_ID1.\n");
             return EXIT_FAILURE;
-        }
     }
 
     /* ------------------------------------------------------------ */
@@ -324,34 +278,22 @@ int main(int argc, char **argv)
 
         // reuse qid1_bytes from step 4 — need to get its length again
         if (!point_to_bytes(group, Q_ID1, &qid1_bytes, &qid1_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Q_ID1.\n");
             return EXIT_FAILURE;
-        }
         if (!point_to_bytes(group, Q_ID2, &qid2_bytes, &qid2_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Q_ID2.\n");
             return EXIT_FAILURE;
-        }
 
         // concatenate ID_2 || Q_ID1 || Q_ID2 into buffer
         size_t buf_len = id2_len + qid1_len + qid2_len;
         buf2 = (unsigned char *)malloc(buf_len);
         if (!buf2)
-        {
-            fprintf(stderr, "Error: malloc failed.\n");
             return EXIT_FAILURE;
-        }
         memcpy(buf2, ID_2, id2_len);
         memcpy(buf2 + id2_len, qid1_bytes, qid1_len);
         memcpy(buf2 + id2_len + qid1_len, qid2_bytes, qid2_len);
 
         // hash to scalar c_ID2
         if (!H1_to_scalar(buf2, buf_len, q, &c_ID2))
-        {
-            fprintf(stderr, "Error: H1_to_scalar failed for c_ID2.\n");
             return EXIT_FAILURE;
-        }
     }
 
     /* ------------------------------------------------------------ */
@@ -369,59 +311,32 @@ int main(int argc, char **argv)
     // compute the product c1c2 = c_ID1 * c_ID2 mod q
     c1c2 = BN_new();
     if (!c1c2)
-    {
-        fprintf(stderr, "Error: BN_new failed.\n");
         return EXIT_FAILURE;
-    }
     if (!BN_mod_mul(c1c2, c_ID1, c_ID2, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_mul failed for c1c2.\n");
         return EXIT_FAILURE;
-    }
 
     // compute term1 = c1c2 * mpk
     term1 = EC_POINT_new(group);
     if (!term1)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed for term1.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_mul(group, term1, NULL, mpk, c1c2, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for term1.\n");
         return EXIT_FAILURE;
-    }
 
     // compute term2 = c_ID2 * Q_ID1
     term2 = EC_POINT_new(group);
     if (!term2)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed for term2.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_mul(group, term2, NULL, Q_ID1, c_ID2, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for term2.\n");
         return EXIT_FAILURE;
-    }
 
     // compute PK_eff = term1 + term2 + Q_ID2
     PK_eff = EC_POINT_new(group);
     if (!PK_eff)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed for PK_eff.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_add(group, PK_eff, term1, term2, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_add failed (term1 + term2).\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_add(group, PK_eff, PK_eff, Q_ID2, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_add failed (+ Q_ID2).\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 7: Compute R' = s * P − h * PK_eff                         */
@@ -438,42 +353,24 @@ int main(int argc, char **argv)
     // compute hpke = h * PK_eff, then invert to get -h * PK_eff
     hpke = EC_POINT_new(group);
     if (!hpke)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed for hpke.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_mul(group, hpke, NULL, PK_eff, h, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for hpke.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_invert(group, hpke, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_invert failed.\n");
         return EXIT_FAILURE;
-    }
 
-    // compute R' = s * P + (-h * PK_eff)
+    // ompute R' = s * P + (-h * PK_eff)
     Rprime = EC_POINT_new(group);
     if (!Rprime)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed for Rprime.\n");
         return EXIT_FAILURE;
-    }
 
-    // first compute s * P into Rprime
+    //first compute s * P into Rprime
     if (!EC_POINT_mul(group, Rprime, NULL, P, s, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for s*P.\n");
         return EXIT_FAILURE;
-    }
 
-    // then add the inverted hpke to get R' = s*P - h*PK_eff
+    //then add the inverted hpke to get R' = s*P - h*PK_eff
     if (!EC_POINT_add(group, Rprime, Rprime, hpke, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_add failed for Rprime.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 8: Verify hash consistency                                */
@@ -488,37 +385,27 @@ int main(int argc, char **argv)
      */
     /* ------------------------------------------------------------ */
 
-    // serialize R' and hash MESSAGE || R' to compute h_check
     {
         size_t Rprime_len = 0;
         if (!point_to_bytes(group, Rprime, &Rprime_bytes, &Rprime_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Rprime.\n");
             return EXIT_FAILURE;
-        }
 
         // concatenate MESSAGE || R' into buffer for hashing
         size_t hbuf_len = m_len + Rprime_len;
         hbuf = (unsigned char *)malloc(hbuf_len);
         if (!hbuf)
-        {
-            fprintf(stderr, "Error: malloc failed.\n");
             return EXIT_FAILURE;
-        }
         memcpy(hbuf, MESSAGE, m_len);
         memcpy(hbuf + m_len, Rprime_bytes, Rprime_len);
 
         // hash to get the recomputed challenge scalar h_check
         if (!H2_to_scalar(hbuf, hbuf_len, q, &h_check))
-        {
-            fprintf(stderr, "Error: H2_to_scalar failed.\n");
             return EXIT_FAILURE;
-        }
 
         // write h_check to verification.txt for debugging
         if (!write_bn_hex("verification.txt", h_check))
         {
-            fprintf(stderr, "Error: failed to write verification.txt.\n");
+            fprintf(stderr, "verify: cannot write verification.txt\n");
             return EXIT_FAILURE;
         }
     }

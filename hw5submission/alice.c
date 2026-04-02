@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 
 	// initialize the EC group and retrieve the group order q
 	if (!init_group(&group, &q)) {
-		fprintf(stderr, "Error: init_group failed\n");
+		fprintf(stderr, "alice: init error\n");
 		goto cleanup;
 	}
 
@@ -123,10 +123,8 @@ int main(int argc, char **argv)
 
 	// retrieve generator point P from the curve group
 	P = EC_GROUP_get0_generator(group);
-	if (!P) {
-		fprintf(stderr, "Error: generator P is NULL\n");
+	if (!P)
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 4. Allocate BN_CTX
@@ -140,10 +138,8 @@ int main(int argc, char **argv)
 
 	// allocate the big-number context for EC operations
 	ctx = BN_CTX_new();
-	if (!ctx) {
-		fprintf(stderr, "Error: BN_CTX_new failed\n");
+	if (!ctx)
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 5. Load Alice and system public parameters
@@ -164,25 +160,17 @@ int main(int argc, char **argv)
 	 */
 
 	// read Alice's long-term private scalar x_a from file
-	if (!read_bn_hex(argv[1], &x_a)) {
-		fprintf(stderr, "Error: read_bn_hex(x_a) failed\n");
+	if (!read_bn_hex(argv[1], &x_a))
 		goto cleanup;
-	}
 	// read Alice's public identity point U_a from file
-	if (!read_point_hex(argv[2], group, &U_a)) {
-		fprintf(stderr, "Error: read_point_hex(U_a) failed\n");
+	if (!read_point_hex(argv[2], group, &U_a))
 		goto cleanup;
-	}
 	// read Bob's public identity point U_b from file
-	if (!read_point_hex(argv[4], group, &U_b)) {
-		fprintf(stderr, "Error: read_point_hex(U_b) failed\n");
+	if (!read_point_hex(argv[4], group, &U_b))
 		goto cleanup;
-	}
 	// read the CA master public key D from file
-	if (!read_point_hex(argv[5], group, &D)) {
-		fprintf(stderr, "Error: read_point_hex(D) failed\n");
+	if (!read_point_hex(argv[5], group, &D))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 6. Load Alice ephemeral scalar p_a
@@ -198,10 +186,8 @@ int main(int argc, char **argv)
 	 */
 
 	// read Alice's ephemeral scalar p_a from file
-	if (!read_bn_hex(argv[3], &p_a)) {
-		fprintf(stderr, "Error: read_bn_hex(p_a) failed\n");
+	if (!read_bn_hex(argv[3], &p_a))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 7. Compute Alice ephemeral public E_a
@@ -219,19 +205,13 @@ int main(int argc, char **argv)
 
 	// allocate E_a and compute E_a = p_a * P
 	E_a = EC_POINT_new(group);
-	if (!E_a) {
-		fprintf(stderr, "Error: EC_POINT_new(E_a) failed\n");
+	if (!E_a)
 		goto cleanup;
-	}
-	if (!EC_POINT_mul(group, E_a, NULL, P, p_a, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(E_a) failed\n");
+	if (!EC_POINT_mul(group, E_a, NULL, P, p_a, ctx))
 		goto cleanup;
-	}
 	// write Alice's ephemeral public point E_a to file
-	if (!write_point_hex("alice_ephemeral_Ea.txt", group, E_a)) {
-		fprintf(stderr, "Error: write_point_hex(E_a) failed\n");
+	if (!write_point_hex("alice_ephemeral_Ea.txt", group, E_a))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 8. Read Bob ephemeral public E_b (if available)
@@ -269,29 +249,23 @@ int main(int argc, char **argv)
 	 */
 
 	// serialize Bob's public identity point U_b into bytes
-	if (!point_to_bytes(group, U_b, &U_bytes, &U_len)) {
-		fprintf(stderr, "Error: point_to_bytes(U_b) failed\n");
+	if (!point_to_bytes(group, U_b, &U_bytes, &U_len))
 		goto cleanup;
-	}
 
 	// build the hash input buffer: ID_B || U_b_bytes
 	{
 		size_t id_len = strlen(ID_B);
 		buf_len = id_len + U_len;
 		buf = malloc(buf_len);
-		if (!buf) {
-			fprintf(stderr, "Error: malloc failed\n");
+		if (!buf)
 			goto cleanup;
-		}
 		memcpy(buf, ID_B, id_len);
 		memcpy(buf + id_len, U_bytes, U_len);
 	}
 
 	// compute h_B = H(ID_B || U_b) mod q using SHA-256
-	if (!sha256_to_scalar(buf, buf_len, q, &h_B)) {
-		fprintf(stderr, "Error: sha256_to_scalar(h_B) failed\n");
+	if (!sha256_to_scalar(buf, buf_len, q, &h_B))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 10. Compute shared key K_ab
@@ -319,36 +293,24 @@ int main(int argc, char **argv)
 	temp1 = EC_POINT_new(group);
 	temp2 = EC_POINT_new(group);
 	K_ab = EC_POINT_new(group);
-	if (!temp1 || !temp2 || !K_ab) {
-		fprintf(stderr, "Error: EC_POINT_new failed\n");
+	if (!temp1 || !temp2 || !K_ab)
 		goto cleanup;
-	}
 
 	// compute temp1 = h_B * U_b
-	if (!EC_POINT_mul(group, temp1, NULL, U_b, h_B, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(h_B*U_b) failed\n");
+	if (!EC_POINT_mul(group, temp1, NULL, U_b, h_B, ctx))
 		goto cleanup;
-	}
 	// compute temp1 = temp1 + D  (i.e., h_B * U_b + D)
-	if (!EC_POINT_add(group, temp1, temp1, D, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_add(+D) failed\n");
+	if (!EC_POINT_add(group, temp1, temp1, D, ctx))
 		goto cleanup;
-	}
 	// compute temp2 = x_a * temp1  (i.e., x_a * (h_B * U_b + D))
-	if (!EC_POINT_mul(group, temp2, NULL, temp1, x_a, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(x_a*temp1) failed\n");
+	if (!EC_POINT_mul(group, temp2, NULL, temp1, x_a, ctx))
 		goto cleanup;
-	}
 	// compute temp1 = p_a * E_b  (ephemeral DH component)
-	if (!EC_POINT_mul(group, temp1, NULL, E_b, p_a, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(p_a*E_b) failed\n");
+	if (!EC_POINT_mul(group, temp1, NULL, E_b, p_a, ctx))
 		goto cleanup;
-	}
 	// compute K_ab = temp2 + temp1  (final shared key point)
-	if (!EC_POINT_add(group, K_ab, temp2, temp1, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_add(K_ab) failed\n");
+	if (!EC_POINT_add(group, K_ab, temp2, temp1, ctx))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 11. Write shared key to disk
@@ -363,7 +325,7 @@ int main(int argc, char **argv)
 
 	// write the shared session key K_ab to file
 	if (!write_point_hex("alice_shared_key_Kab.txt", group, K_ab)) {
-		fprintf(stderr, "Error: write_point_hex(K_ab) failed\n");
+		fprintf(stderr, "alice: write K_ab failed\n");
 		goto cleanup;
 	}
 

@@ -77,17 +77,14 @@ int main(int argc, char **argv) {
     // initialize the elliptic curve group and extract group order q
     if (!init_group(&group, &q))
     {
-        fprintf(stderr, "Error: failed to initialize EC group.\n");
+        fprintf(stderr, "signer1 - group init failed\n");
         return EXIT_FAILURE;
     }
 
     // retrieve the generator point P from the curve group
     P = EC_GROUP_get0_generator(group);
     if (!P)
-    {
-        fprintf(stderr, "Error: failed to get generator P.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 1: Read master secret x (sk_ID0) from msk.txt            */
@@ -101,10 +98,7 @@ int main(int argc, char **argv) {
 
     // read the PKG master secret scalar x from the msk file
     if (!read_bn_hex(msk_path, &x))
-    {
-        fprintf(stderr, "Error: failed to read master secret from %s.\n", msk_path);
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 2: Read identity string ID_1 from ID1.txt                */
@@ -122,14 +116,10 @@ int main(int argc, char **argv) {
     {
         FILE *f = fopen(id_path, "r");
         if (!f)
-        {
-            fprintf(stderr, "Error: cannot open %s.\n", id_path);
             return EXIT_FAILURE;
-        }
         if (!fgets(ID_1, sizeof(ID_1), f))
         {
             fclose(f);
-            fprintf(stderr, "Error: failed to read identity from %s.\n", id_path);
             return EXIT_FAILURE;
         }
         fclose(f);
@@ -152,16 +142,10 @@ int main(int argc, char **argv) {
     // allocate BN context and scalars for delegation computation
     ctx = BN_CTX_new();
     if (!ctx)
-    {
-        fprintf(stderr, "Error: BN_CTX_new failed.\n");
         return EXIT_FAILURE;
-    }
     sk_ID1 = BN_new();
     if (!sk_ID1)
-    {
-        fprintf(stderr, "Error: BN_new failed for sk_ID1.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 4: Read delegation randomness b1                         */
@@ -175,10 +159,7 @@ int main(int argc, char **argv) {
 
     // read the random delegation scalar b1 from signer1_b1.txt
     if (!read_bn_hex(b1_path, &b1))
-    {
-        fprintf(stderr, "Error: failed to read b1 from %s.\n", b1_path);
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 5: Compute Q_ID1 = b1 * P                                 */
@@ -194,15 +175,9 @@ int main(int argc, char **argv) {
     // compute the public identity point Q_ID1 = b1 * P
     Q_ID1 = EC_POINT_new(group);
     if (!Q_ID1)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_mul(group, Q_ID1, NULL, P, b1, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for Q_ID1.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 6: Compute c_ID1 = H1(ID_1 || Q_ID1)                      */
@@ -220,28 +195,19 @@ int main(int argc, char **argv) {
     {
         size_t qid1_len = 0;
         if (!point_to_bytes(group, Q_ID1, &qid1_bytes, &qid1_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Q_ID1.\n");
             return EXIT_FAILURE;
-        }
 
         // concatenate ID_1 || Q_ID1 into a single buffer
         size_t buf_len = id_len + qid1_len;
         buf = (unsigned char *)malloc(buf_len);
         if (!buf)
-        {
-            fprintf(stderr, "Error: malloc failed for concatenation buffer.\n");
             return EXIT_FAILURE;
-        }
         memcpy(buf, ID_1, id_len);
         memcpy(buf + id_len, qid1_bytes, qid1_len);
 
         // hash the concatenated buffer to produce the scalar c_ID1
         if (!H1_to_scalar(buf, buf_len, q, &c_ID1))
-        {
-            fprintf(stderr, "Error: H1_to_scalar failed.\n");
             return EXIT_FAILURE;
-        }
     }
 
     /* ------------------------------------------------------------ */
@@ -258,22 +224,13 @@ int main(int argc, char **argv) {
     // compute the level-1 private key: sk_ID1 = x * c_ID1 + b1 mod q
     tmp = BN_new();
     if (!tmp)
-    {
-        fprintf(stderr, "Error: BN_new failed for tmp.\n");
         return EXIT_FAILURE;
-    }
     // tmp = x * c_ID1 mod q
     if (!BN_mod_mul(tmp, x, c_ID1, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_mul failed.\n");
         return EXIT_FAILURE;
-    }
     // sk_ID1 = tmp + b1 mod q
     if (!BN_mod_add(sk_ID1, tmp, b1, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_add failed.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 8: Write output keys                                     */
@@ -288,14 +245,14 @@ int main(int argc, char **argv) {
     // write the level-1 private key to sk_ID1.txt
     if (!write_bn_hex("sk_ID1.txt", sk_ID1))
     {
-        fprintf(stderr, "Error: failed to write sk_ID1.txt.\n");
+        fprintf(stderr, "signer1 - write sk_ID1.txt failed\n");
         return EXIT_FAILURE;
     }
 
     // write the public delegation point to Q_ID1.txt
     if (!write_point_hex("Q_ID1.txt", group, Q_ID1))
     {
-        fprintf(stderr, "Error: failed to write Q_ID1.txt.\n");
+        fprintf(stderr, "signer1 - write Q_ID1.txt failed\n");
         return EXIT_FAILURE;
     }
 

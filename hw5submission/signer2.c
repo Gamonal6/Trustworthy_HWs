@@ -113,17 +113,14 @@ int main(int argc, char **argv)
     // initialize the elliptic curve group and extract group order q
     if (!init_group(&group, &q))
     {
-        fprintf(stderr, "Error: failed to initialize EC group.\n");
+        fprintf(stderr, "[s2] group init failed\n");
         return EXIT_FAILURE;
     }
 
     // retrieve the generator point P from the curve group
     P = EC_GROUP_get0_generator(group);
     if (!P)
-    {
-        fprintf(stderr, "Error: failed to get generator P.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 1: Read level-1 secret key and public delegation point   */
@@ -137,17 +134,11 @@ int main(int argc, char **argv)
 
     // read the level-1 private key scalar from sk_ID1.txt
     if (!read_bn_hex(sk_id1_path, &sk_ID1))
-    {
-        fprintf(stderr, "Error: failed to read sk_ID1 from %s.\n", sk_id1_path);
         return EXIT_FAILURE;
-    }
 
     // read the level-1 public delegation point from Q_ID1.txt
     if (!read_point_hex(q_id1_path, group, &Q_ID1))
-    {
-        fprintf(stderr, "Error: failed to read Q_ID1 from %s.\n", q_id1_path);
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 2: Read identity ID_2 and message                        */
@@ -166,14 +157,10 @@ int main(int argc, char **argv)
     {
         FILE *f = fopen(id2_path, "r");
         if (!f)
-        {
-            fprintf(stderr, "Error: cannot open %s.\n", id2_path);
             return EXIT_FAILURE;
-        }
         if (!fgets(ID_2, sizeof(ID_2), f))
         {
             fclose(f);
-            fprintf(stderr, "Error: failed to read identity from %s.\n", id2_path);
             return EXIT_FAILURE;
         }
         fclose(f);
@@ -186,14 +173,10 @@ int main(int argc, char **argv)
     {
         FILE *f = fopen(msg_path, "r");
         if (!f)
-        {
-            fprintf(stderr, "Error: cannot open %s.\n", msg_path);
             return EXIT_FAILURE;
-        }
         if (!fgets(MESSAGE, sizeof(MESSAGE), f))
         {
             fclose(f);
-            fprintf(stderr, "Error: failed to read message from %s.\n", msg_path);
             return EXIT_FAILURE;
         }
         fclose(f);
@@ -215,17 +198,11 @@ int main(int argc, char **argv)
     // allocate BN context and scalars for delegation and signing
     ctx = BN_CTX_new();
     if (!ctx)
-    {
-        fprintf(stderr, "Error: BN_CTX_new failed.\n");
         return EXIT_FAILURE;
-    }
     sk_ID2 = BN_new();
     s = BN_new();
     if (!sk_ID2 || !s)
-    {
-        fprintf(stderr, "Error: BN_new failed.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 4: Delegation — read b2 and compute Q_ID2                */
@@ -240,23 +217,14 @@ int main(int argc, char **argv)
 
     // read the random delegation scalar b2 from signer2_b2.txt
     if (!read_bn_hex(b2_path, &b2))
-    {
-        fprintf(stderr, "Error: failed to read b2 from %s.\n", b2_path);
         return EXIT_FAILURE;
-    }
 
     // compute the level-2 public delegation point Q_ID2 = b2 * P
     Q_ID2 = EC_POINT_new(group);
     if (!Q_ID2)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_mul(group, Q_ID2, NULL, P, b2, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for Q_ID2.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 5: Compute c_ID2 = H1(ID_2 || Q_ID1 || Q_ID2)             */
@@ -273,34 +241,22 @@ int main(int argc, char **argv)
     {
         size_t qid1_len = 0, qid2_len = 0;
         if (!point_to_bytes(group, Q_ID1, &qid1_bytes, &qid1_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Q_ID1.\n");
             return EXIT_FAILURE;
-        }
         if (!point_to_bytes(group, Q_ID2, &qid2_bytes, &qid2_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for Q_ID2.\n");
             return EXIT_FAILURE;
-        }
 
         // concatenate ID_2 || Q_ID1 || Q_ID2 into a single buffer
         size_t buf_len = id_len + qid1_len + qid2_len;
         buf = (unsigned char *)malloc(buf_len);
         if (!buf)
-        {
-            fprintf(stderr, "Error: malloc failed.\n");
             return EXIT_FAILURE;
-        }
         memcpy(buf, ID_2, id_len);
         memcpy(buf + id_len, qid1_bytes, qid1_len);
         memcpy(buf + id_len + qid1_len, qid2_bytes, qid2_len);
 
         // hash the concatenated buffer to produce the scalar c_ID2
         if (!H1_to_scalar(buf, buf_len, q, &c_ID2))
-        {
-            fprintf(stderr, "Error: H1_to_scalar failed.\n");
             return EXIT_FAILURE;
-        }
     }
 
     /* ------------------------------------------------------------ */
@@ -317,20 +273,11 @@ int main(int argc, char **argv)
     // compute the level-2 private key: sk_ID2 = sk_ID1 * c_ID2 + b2 mod q
     tmp = BN_new();
     if (!tmp)
-    {
-        fprintf(stderr, "Error: BN_new failed for tmp.\n");
         return EXIT_FAILURE;
-    }
     if (!BN_mod_mul(tmp, sk_ID1, c_ID2, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_mul failed.\n");
         return EXIT_FAILURE;
-    }
     if (!BN_mod_add(sk_ID2, tmp, b2, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_add failed.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 7: Signing — read r and compute R                         */
@@ -345,23 +292,14 @@ int main(int argc, char **argv)
 
     // read the signing nonce r from signer2_r.txt
     if (!read_bn_hex(r_path, &r))
-    {
-        fprintf(stderr, "Error: failed to read r from %s.\n", r_path);
         return EXIT_FAILURE;
-    }
 
     // compute the commitment point R = r * P
     R = EC_POINT_new(group);
     if (!R)
-    {
-        fprintf(stderr, "Error: EC_POINT_new failed for R.\n");
         return EXIT_FAILURE;
-    }
     if (!EC_POINT_mul(group, R, NULL, P, r, ctx))
-    {
-        fprintf(stderr, "Error: EC_POINT_mul failed for R.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 8: Compute h = H2(message || R)                           */
@@ -378,28 +316,19 @@ int main(int argc, char **argv)
     {
         size_t R_len = 0;
         if (!point_to_bytes(group, R, &R_bytes, &R_len))
-        {
-            fprintf(stderr, "Error: point_to_bytes failed for R.\n");
             return EXIT_FAILURE;
-        }
 
         // concatenate MESSAGE || R into a buffer for hashing
         size_t hbuf_len = m_len + R_len;
         hbuf = (unsigned char *)malloc(hbuf_len);
         if (!hbuf)
-        {
-            fprintf(stderr, "Error: malloc failed.\n");
             return EXIT_FAILURE;
-        }
         memcpy(hbuf, MESSAGE, m_len);
         memcpy(hbuf + m_len, R_bytes, R_len);
 
         // hash to get the Schnorr challenge scalar h
         if (!H2_to_scalar(hbuf, hbuf_len, q, &h))
-        {
-            fprintf(stderr, "Error: H2_to_scalar failed.\n");
             return EXIT_FAILURE;
-        }
     }
 
     /* ------------------------------------------------------------ */
@@ -416,20 +345,11 @@ int main(int argc, char **argv)
     // compute the Schnorr signature scalar: s = r + h * sk_ID2 mod q
     tmp2 = BN_new();
     if (!tmp2)
-    {
-        fprintf(stderr, "Error: BN_new failed for tmp2.\n");
         return EXIT_FAILURE;
-    }
     if (!BN_mod_mul(tmp2, h, sk_ID2, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_mul failed.\n");
         return EXIT_FAILURE;
-    }
     if (!BN_mod_add(s, r, tmp2, q, ctx))
-    {
-        fprintf(stderr, "Error: BN_mod_add failed.\n");
         return EXIT_FAILURE;
-    }
 
     /* ------------------------------------------------------------ */
     /* Step 10: Write output files                                   */
@@ -444,22 +364,19 @@ int main(int argc, char **argv)
 
     // write the level-2 public delegation point to Q_ID2.txt
     if (!write_point_hex("Q_ID2.txt", group, Q_ID2))
-    {
-        fprintf(stderr, "Error: failed to write Q_ID2.txt.\n");
         return EXIT_FAILURE;
-    }
 
     // write the Schnorr signature scalar s to sig_s.txt
     if (!write_bn_hex("sig_s.txt", s))
     {
-        fprintf(stderr, "Error: failed to write sig_s.txt.\n");
+        fprintf(stderr, "[s2] write sig_s.txt failed\n");
         return EXIT_FAILURE;
     }
 
     // write the Schnorr signature hash h to sig_h.txt
     if (!write_bn_hex("sig_h.txt", h))
     {
-        fprintf(stderr, "Error: failed to write sig_h.txt.\n");
+        fprintf(stderr, "[s2] write sig_h.txt failed\n");
         return EXIT_FAILURE;
     }
 

@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 	// initialize the elliptic curve group and extract group order q
 	if (!init_group(&group, &q))
 	{
-		fprintf(stderr, "Error: failed to initialize EC group.\n");
+		fprintf(stderr, "[pkg] EC group init failed\n");
 		goto cleanup;
 	}
 
@@ -92,10 +92,7 @@ int main(int argc, char **argv)
 	// retrieve the generator point P from the curve group
 	P = EC_GROUP_get0_generator(group);
 	if (!P)
-	{
-		fprintf(stderr, "Error: failed to get generator P.\n");
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 3. Command-line argument validation
@@ -135,10 +132,7 @@ int main(int argc, char **argv)
 	// allocate a BN context for big number operations
 	ctx = BN_CTX_new();
 	if (!ctx)
-	{
-		fprintf(stderr, "Error: BN_CTX_new failed.\n");
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 5. Load master secret key x
@@ -159,10 +153,7 @@ int main(int argc, char **argv)
 
 	// read the master secret key x from the input file
 	if (!read_bn_hex(argv[1], &msk))
-	{
-		fprintf(stderr, "Error: failed to read master secret from %s.\n", argv[1]);
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 6. Compute master public key mpk
@@ -183,15 +174,9 @@ int main(int argc, char **argv)
 	// allocate the master public key point and compute mpk = msk * P
 	mpk = EC_POINT_new(group);
 	if (!mpk)
-	{
-		fprintf(stderr, "Error: EC_POINT_new failed.\n");
 		goto cleanup;
-	}
 	if (!EC_POINT_mul(group, mpk, NULL, P, msk, ctx))
-	{
-		fprintf(stderr, "Error: EC_POINT_mul failed.\n");
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 7. Write master public key to disk
@@ -213,7 +198,7 @@ int main(int argc, char **argv)
 	// write the master public key to mpk.txt as hex-encoded EC point
 	if (!write_point_hex("mpk.txt", group, mpk))
 	{
-		fprintf(stderr, "Error: failed to write mpk.txt.\n");
+		fprintf(stderr, "[pkg] could not write mpk.txt\n");
 		goto cleanup;
 	}
 

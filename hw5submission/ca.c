@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 	 */
 	if (argc != 4)
 	{
-		fprintf(stderr, "Usage: %s <d_file> <b_a_file> <b_b_file>\n", argv[0]);
+		fprintf(stderr, "%s <d_file> <b_a_file> <b_b_file>\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 
 	// initialize the EC group and retrieve the group order q
 	if (!init_group(&group, &q)) {
-		fprintf(stderr, "Error: init_group failed\n");
+		fprintf(stderr, "[CA] setup failed\n");
 		goto cleanup;
 	}
 
@@ -118,10 +118,8 @@ int main(int argc, char **argv)
 
 	// retrieve generator point P from the curve group
 	P = EC_GROUP_get0_generator(group);
-	if (!P) {
-		fprintf(stderr, "Error: generator P is NULL\n");
+	if (!P)
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 4. Allocate context and master key objects
@@ -138,10 +136,8 @@ int main(int argc, char **argv)
 	// allocate BN context and master public key point D
 	ctx = BN_CTX_new();
 	D = EC_POINT_new(group);
-	if (!ctx || !D) {
-		fprintf(stderr, "Error: allocation failed\n");
+	if (!ctx || !D)
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 5. Load CA master secret d
@@ -159,10 +155,8 @@ int main(int argc, char **argv)
 	 */
 
 	// read the CA master secret d from the hex-encoded input file
-	if (!read_bn_hex(argv[1], &d)) {
-		fprintf(stderr, "Error: read_bn_hex(d) failed\n");
+	if (!read_bn_hex(argv[1], &d))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 6. Compute CA master public key D
@@ -178,10 +172,8 @@ int main(int argc, char **argv)
 	 */
 
 	// compute master public key D = d * P
-	if (!EC_POINT_mul(group, D, NULL, P, d, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(D) failed\n");
+	if (!EC_POINT_mul(group, D, NULL, P, d, ctx))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 7. Write CA master keys to disk
@@ -199,13 +191,11 @@ int main(int argc, char **argv)
 	 */
 
 	// write the master secret scalar d to file
-	if (!write_bn_hex("ca_master_secret_d.txt", d)) {
-		fprintf(stderr, "Error: write_bn_hex(d) failed\n");
+	if (!write_bn_hex("ca_master_secret_d.txt", d))
 		goto cleanup;
-	}
 	// write the master public key point D to file
 	if (!write_point_hex("ca_master_public_D.txt", group, D)) {
-		fprintf(stderr, "Error: write_point_hex(D) failed\n");
+		fprintf(stderr, "[CA] write D failed\n");
 		goto cleanup;
 	}
 
@@ -226,10 +216,8 @@ int main(int argc, char **argv)
 	x_a = BN_new();
 	x_b = BN_new();
 	tmp = BN_new();
-	if (!U_a || !U_b || !x_a || !x_b || !tmp) {
-		fprintf(stderr, "Error: per-user allocation failed\n");
+	if (!U_a || !U_b || !x_a || !x_b || !tmp)
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 9. Load per-user random scalars
@@ -246,15 +234,11 @@ int main(int argc, char **argv)
 	 */
 
 	// read Alice's random scalar b_a from the hex-encoded file
-	if (!read_bn_hex(argv[2], &b_a)) {
-		fprintf(stderr, "Error: read_bn_hex(b_a) failed\n");
+	if (!read_bn_hex(argv[2], &b_a))
 		goto cleanup;
-	}
 	// read Bob's random scalar b_b from the hex-encoded file
-	if (!read_bn_hex(argv[3], &b_b)) {
-		fprintf(stderr, "Error: read_bn_hex(b_b) failed\n");
+	if (!read_bn_hex(argv[3], &b_b))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 10. Alice offline key generation
@@ -284,56 +268,40 @@ int main(int argc, char **argv)
 	 */
 
 	// compute Alice's public identity component U_a = b_a * P
-	if (!EC_POINT_mul(group, U_a, NULL, P, b_a, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(U_a) failed\n");
+	if (!EC_POINT_mul(group, U_a, NULL, P, b_a, ctx))
 		goto cleanup;
-	}
 
 	// serialize U_a into bytes for hash concatenation
-	if (!point_to_bytes(group, U_a, &U_bytes, &U_len)) {
-		fprintf(stderr, "Error: point_to_bytes(U_a) failed\n");
+	if (!point_to_bytes(group, U_a, &U_bytes, &U_len))
 		goto cleanup;
-	}
 
 	// build the hash input buffer: ID_A || U_a_bytes
 	{
 		size_t id_len = strlen(ID_A);
 		buf_len = id_len + U_len;
 		buf = malloc(buf_len);
-		if (!buf) {
-			fprintf(stderr, "Error: malloc failed\n");
+		if (!buf)
 			goto cleanup;
-		}
 		memcpy(buf, ID_A, id_len);
 		memcpy(buf + id_len, U_bytes, U_len);
 	}
 
 	// compute h_a = H(ID_A || U_a) mod q using SHA-256
-	if (!sha256_to_scalar(buf, buf_len, q, &h_a)) {
-		fprintf(stderr, "Error: sha256_to_scalar(h_a) failed\n");
+	if (!sha256_to_scalar(buf, buf_len, q, &h_a))
 		goto cleanup;
-	}
 
 	// compute x_a = (h_a * b_a + d) mod q
-	if (!BN_mod_mul(tmp, h_a, b_a, q, ctx)) {
-		fprintf(stderr, "Error: BN_mod_mul failed\n");
+	if (!BN_mod_mul(tmp, h_a, b_a, q, ctx))
 		goto cleanup;
-	}
-	if (!BN_mod_add(x_a, tmp, d, q, ctx)) {
-		fprintf(stderr, "Error: BN_mod_add failed\n");
+	if (!BN_mod_add(x_a, tmp, d, q, ctx))
 		goto cleanup;
-	}
 
 	// write Alice's private key x_a to file
-	if (!write_bn_hex("alice_private_xa.txt", x_a)) {
-		fprintf(stderr, "Error: write_bn_hex(x_a) failed\n");
+	if (!write_bn_hex("alice_private_xa.txt", x_a))
 		goto cleanup;
-	}
 	// write Alice's public identity component U_a to file
-	if (!write_point_hex("alice_public_Ua.txt", group, U_a)) {
-		fprintf(stderr, "Error: write_point_hex(U_a) failed\n");
+	if (!write_point_hex("alice_public_Ua.txt", group, U_a))
 		goto cleanup;
-	}
 
 	/* =====================================================
 	 * 11. Bob offline key generation
@@ -356,56 +324,40 @@ int main(int argc, char **argv)
 	free(buf); buf = NULL;
 
 	// compute Bob's public identity component U_b = b_b * P
-	if (!EC_POINT_mul(group, U_b, NULL, P, b_b, ctx)) {
-		fprintf(stderr, "Error: EC_POINT_mul(U_b) failed\n");
+	if (!EC_POINT_mul(group, U_b, NULL, P, b_b, ctx))
 		goto cleanup;
-	}
 
 	// serialize U_b into bytes for hash concatenation
-	if (!point_to_bytes(group, U_b, &U_bytes, &U_len)) {
-		fprintf(stderr, "Error: point_to_bytes(U_b) failed\n");
+	if (!point_to_bytes(group, U_b, &U_bytes, &U_len))
 		goto cleanup;
-	}
 
 	// build the hash input buffer: ID_B || U_b_bytes
 	{
 		size_t id_len = strlen(ID_B);
 		buf_len = id_len + U_len;
 		buf = malloc(buf_len);
-		if (!buf) {
-			fprintf(stderr, "Error: malloc failed\n");
+		if (!buf)
 			goto cleanup;
-		}
 		memcpy(buf, ID_B, id_len);
 		memcpy(buf + id_len, U_bytes, U_len);
 	}
 
 	// compute h_b = H(ID_B || U_b) mod q using SHA-256
-	if (!sha256_to_scalar(buf, buf_len, q, &h_b)) {
-		fprintf(stderr, "Error: sha256_to_scalar(h_b) failed\n");
+	if (!sha256_to_scalar(buf, buf_len, q, &h_b))
 		goto cleanup;
-	}
 
 	// compute x_b = (h_b * b_b + d) mod q
-	if (!BN_mod_mul(tmp, h_b, b_b, q, ctx)) {
-		fprintf(stderr, "Error: BN_mod_mul failed\n");
+	if (!BN_mod_mul(tmp, h_b, b_b, q, ctx))
 		goto cleanup;
-	}
-	if (!BN_mod_add(x_b, tmp, d, q, ctx)) {
-		fprintf(stderr, "Error: BN_mod_add failed\n");
+	if (!BN_mod_add(x_b, tmp, d, q, ctx))
 		goto cleanup;
-	}
 
 	// write Bob's private key x_b to file
-	if (!write_bn_hex("bob_private_xb.txt", x_b)) {
-		fprintf(stderr, "Error: write_bn_hex(x_b) failed\n");
+	if (!write_bn_hex("bob_private_xb.txt", x_b))
 		goto cleanup;
-	}
 	// write Bob's public identity component U_b to file
-	if (!write_point_hex("bob_public_Ub.txt", group, U_b)) {
-		fprintf(stderr, "Error: write_point_hex(U_b) failed\n");
+	if (!write_point_hex("bob_public_Ub.txt", group, U_b))
 		goto cleanup;
-	}
 
 	printf("[CA] Offline keys generated for Alice and Bob.\n");
 	ret = EXIT_SUCCESS;
